@@ -260,7 +260,21 @@ function setupTelemetryHandling(): void {
         statusBarItem.backgroundColor = undefined;
         statusBarItem.tooltip = t('statusBar.tooltip');
 
-        // 更新 Dashboard
+        // 自动将新分组添加到 pinnedGroups（第一次开启分组时默认全部显示在状态栏）
+        if (config.groupingEnabled && snapshot.groups && snapshot.groups.length > 0) {
+            const currentPinnedGroups = config.pinnedGroups;
+            const allGroupIds = snapshot.groups.map(g => g.groupId);
+            
+            // 如果 pinnedGroups 为空，说明是第一次开启分组，自动 pin 全部
+            if (currentPinnedGroups.length === 0) {
+                logger.info(`Auto-pinning all ${allGroupIds.length} groups to status bar`);
+                await configService.updateConfig('pinnedGroups', allGroupIds);
+                // 重新获取配置
+                config = configService.getConfig();
+            }
+        }
+
+        // 更新 Dashboard（使用可能已更新的 config）
         hud.refreshView(snapshot, {
             showPromptCredits: config.showPromptCredits,
             pinnedModels: config.pinnedModels,
@@ -272,19 +286,6 @@ function setupTelemetryHandling(): void {
             groupOrder: config.groupOrder,
             refreshInterval: config.refreshInterval,
         });
-
-        // 自动将新分组添加到 pinnedGroups（第一次开启分组时默认全部显示在状态栏）
-        if (config.groupingEnabled && snapshot.groups && snapshot.groups.length > 0) {
-            const currentPinnedGroups = config.pinnedGroups;
-            const allGroupIds = snapshot.groups.map(g => g.groupId);
-            
-            // 如果 pinnedGroups 为空，说明是第一次开启分组，自动 pin 全部
-            if (currentPinnedGroups.length === 0) {
-                await configService.updateConfig('pinnedGroups', allGroupIds);
-                // 重新获取配置用于状态栏更新
-                config = configService.getConfig();
-            }
-        }
 
         // 更新状态栏
         updateStatusBar(snapshot, config);
