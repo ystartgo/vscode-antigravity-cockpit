@@ -103,6 +103,15 @@ const translations: Record<SupportedLocale, TranslationMap> = {
         'profile.show': 'Show Plan Details',
         'profile.hideData': 'Hide Data',
         'profile.showData': 'Show Data',
+        // Grouping
+        'grouping.title': 'Quota Groups',
+        'grouping.enable': 'Enable Grouping',
+        'grouping.disable': 'Disable Grouping',
+        'grouping.rename': 'Rename Group',
+        'grouping.renamePrompt': 'Enter new name for this group:',
+        'grouping.models': 'Models',
+        'grouping.showInStatusBar': 'Show Groups in Status Bar',
+        'grouping.toggleHint': 'Toggle group view',
     },
     'zh-cn': {
         // 状态栏
@@ -192,6 +201,15 @@ const translations: Record<SupportedLocale, TranslationMap> = {
         'profile.show': '显示计划详情',
         'profile.hideData': '隐藏数据',
         'profile.showData': '显示数据',
+        // Grouping
+        'grouping.title': '配额分组',
+        'grouping.enable': '开启分组',
+        'grouping.disable': '关闭分组',
+        'grouping.rename': '重命名分组',
+        'grouping.renamePrompt': '请输入新的分组名称:',
+        'grouping.models': '包含模型',
+        'grouping.showInStatusBar': '在状态栏显示分组',
+        'grouping.toggleHint': '切换分组视图',
     },
 };
 

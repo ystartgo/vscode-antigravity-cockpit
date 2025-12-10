@@ -3,7 +3,7 @@
   "displayName": "Antigravity Cockpit",
   "icon": "assets/icon.png",
   "description": "A premium, dashboard-style quota monitor for Antigravity AI.",
-  "version": "1.1.151",
+  "version": "1.2.0",
   "publisher": "jlcodes",
   "engines": {
     "vscode": "^1.90.0"
@@ -104,6 +104,37 @@
             "Show model name and detailed percentage (e.g. 'Gemini: 95.5%')"
           ],
           "description": "Format of the status bar display."
+        },
+        "agCockpit.groupingEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable quota grouping feature. Models sharing the same quota pool will be grouped together."
+        },
+        "agCockpit.groupingCustomNames": {
+          "type": "object",
+          "default": {},
+          "description": "Custom names for quota groups. Maps model IDs to group names."
+        },
+        "agCockpit.groupingShowInStatusBar": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show quota groups in the status bar instead of individual models."
+        },
+        "agCockpit.pinnedGroups": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Groups to pin to the status bar."
+        },
+        "agCockpit.groupOrder": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "User-defined order of groups in the dashboard."
         }
       }
     },

@@ -142,8 +142,14 @@ function setupMessageHandling(): void {
                 break;
 
             case 'resetOrder':
-                logger.info('User reset model order to default');
-                await configService.resetModelOrder();
+                const currentConfig = configService.getConfig();
+                if (currentConfig.groupingEnabled) {
+                    logger.info('User reset group order to default');
+                    await configService.resetGroupOrder();
+                } else {
+                    logger.info('User reset model order to default');
+                    await configService.resetModelOrder();
+                }
                 reactor.reprocess();
                 break;
 
@@ -177,6 +183,68 @@ function setupMessageHandling(): void {
                 logger.info('Dashboard requested re-render');
                 reactor.reprocess();
                 break;
+
+            case 'toggleGrouping':
+                logger.info('User toggled grouping display');
+                const enabled = await configService.toggleGroupingEnabled();
+                // 用户期望：切换到分组模式时，状态栏默认也显示分组
+                if (enabled) {
+                    const config = configService.getConfig();
+                    if (!config.groupingShowInStatusBar) {
+                        await configService.updateConfig('groupingShowInStatusBar', true);
+                    }
+                }
+                // 需要重新从 API 获取数据以生成分组
+                reactor.syncTelemetry();
+                break;
+
+            case 'renameGroup':
+                if (message.modelIds && message.groupName) {
+                    logger.info(`User renamed group to: ${message.groupName}`);
+                    await configService.updateGroupName(message.modelIds, message.groupName);
+                    // 需要重新处理数据以更新分组名称
+                    reactor.syncTelemetry();
+                } else {
+                    logger.warn('renameGroup signal missing required data');
+                }
+                break;
+
+            case 'promptRenameGroup':
+                if (message.modelIds && message.currentName) {
+                    const newName = await vscode.window.showInputBox({
+                        prompt: t('grouping.renamePrompt'),
+                        value: message.currentName,
+                        placeHolder: t('grouping.rename'),
+                    });
+                    if (newName && newName.trim() && newName !== message.currentName) {
+                        logger.info(`User renamed group to: ${newName}`);
+                        await configService.updateGroupName(message.modelIds, newName.trim());
+                        reactor.syncTelemetry();
+                    }
+                } else {
+                    logger.warn('promptRenameGroup signal missing required data');
+                }
+                break;
+
+            case 'toggleGroupPin':
+                if (message.groupId) {
+                    logger.info(`Toggling group pin: ${message.groupId}`);
+                    await configService.togglePinnedGroup(message.groupId);
+                    reactor.reprocess();
+                } else {
+                    logger.warn('toggleGroupPin signal missing groupId');
+                }
+                break;
+
+            case 'updateGroupOrder':
+                if (message.order) {
+                    logger.info(`User updated group order. Count: ${message.order.length}`);
+                    await configService.updateGroupOrder(message.order);
+                    reactor.reprocess();
+                } else {
+                    logger.warn('updateGroupOrder signal missing order data');
+                }
+                break;
         }
     });
 }
@@ -197,6 +265,11 @@ function setupTelemetryHandling(): void {
             showPromptCredits: config.showPromptCredits,
             pinnedModels: config.pinnedModels,
             modelOrder: config.modelOrder,
+            groupingEnabled: config.groupingEnabled,
+            groupCustomNames: config.groupingCustomNames,
+            groupingShowInStatusBar: config.groupingShowInStatusBar,
+            pinnedGroups: config.pinnedGroups,
+            groupOrder: config.groupOrder,
         });
 
         // 更新状态栏
@@ -228,40 +301,105 @@ function updateStatusBar(snapshot: QuotaSnapshot, config: CockpitConfig): void {
     const statusTextParts: string[] = [];
     let minPercentage = 100;
 
-    // 获取置顶的模型
-    const monitoredModels = snapshot.models.filter(m =>
-        config.pinnedModels.some(p =>
-            p.toLowerCase() === m.modelId.toLowerCase() ||
-            p.toLowerCase() === m.label.toLowerCase(),
-        ),
-    );
+    // 检查是否启用分组显示
+    if (config.groupingEnabled && config.groupingShowInStatusBar && snapshot.groups && snapshot.groups.length > 0) {
+        // 获取置顶的分组
+        const monitoredGroups = snapshot.groups.filter(g =>
+            config.pinnedGroups.includes(g.groupId)
+        );
 
-    if (monitoredModels.length > 0) {
-        // 显示置顶模型
-        monitoredModels.forEach(m => {
-            const pct = m.remainingPercentage ?? 0;
-            const text = formatStatusBarText(m.label, pct, config.statusBarFormat);
-            statusTextParts.push(text);
-            if (pct < minPercentage) {
-                minPercentage = pct;
+        if (monitoredGroups.length > 0) {
+            // 对置顶分组按 config.groupOrder 排序
+            if (config.groupOrder.length > 0) {
+                monitoredGroups.sort((a, b) => {
+                    const idxA = config.groupOrder.indexOf(a.groupId);
+                    const idxB = config.groupOrder.indexOf(b.groupId);
+                    // 如果都在排序列表中，按列表顺序
+                    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                    // 如果一个在列表一个不在，在列表的优先
+                    if (idxA !== -1) return -1;
+                    if (idxB !== -1) return 1;
+                    // 都不在，保持原序
+                    return 0;
+                });
             }
-        });
+
+            // 显示置顶分组
+            monitoredGroups.forEach(g => {
+                const pct = g.remainingPercentage;
+                const text = formatStatusBarText(g.groupName, pct, config.statusBarFormat);
+                statusTextParts.push(text);
+                if (pct < minPercentage) {
+                    minPercentage = pct;
+                }
+            });
+        } else {
+            // 显示最低配额分组，格式改为 "最低: xx%"
+            let lowestPct = 100;
+            let lowestGroup = snapshot.groups[0];
+
+            snapshot.groups.forEach(g => {
+                const pct = g.remainingPercentage;
+                if (pct < lowestPct) {
+                    lowestPct = pct;
+                    lowestGroup = g;
+                }
+            });
+
+            if (lowestGroup) {
+                statusTextParts.push(`${t('statusBar.lowest')}: ${Math.floor(lowestPct)}%`);
+                minPercentage = lowestPct;
+            }
+        }
     } else {
-        // 显示最低配额模型
-        let lowestPct = 100;
-        let lowestModel = snapshot.models[0];
+        // 原始逻辑：显示模型
+        // 获取置顶的模型
+        const monitoredModels = snapshot.models.filter(m =>
+            config.pinnedModels.some(p =>
+                p.toLowerCase() === m.modelId.toLowerCase() ||
+                p.toLowerCase() === m.label.toLowerCase(),
+            ),
+        );
 
-        snapshot.models.forEach(m => {
-            const pct = m.remainingPercentage ?? 0;
-            if (pct < lowestPct) {
-                lowestPct = pct;
-                lowestModel = m;
+        if (monitoredModels.length > 0) {
+            // 对置顶模型按 config.modelOrder 排序
+            if (config.modelOrder.length > 0) {
+                monitoredModels.sort((a, b) => {
+                    const idxA = config.modelOrder.indexOf(a.modelId);
+                    const idxB = config.modelOrder.indexOf(b.modelId);
+                    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                    if (idxA !== -1) return -1;
+                    if (idxB !== -1) return 1;
+                    return 0;
+                });
             }
-        });
 
-        if (lowestModel) {
-            statusTextParts.push(`${t('statusBar.lowest')}: ${Math.floor(lowestPct)}%`);
-            minPercentage = lowestPct;
+            // 显示置顶模型
+            monitoredModels.forEach(m => {
+                const pct = m.remainingPercentage ?? 0;
+                const text = formatStatusBarText(m.label, pct, config.statusBarFormat);
+                statusTextParts.push(text);
+                if (pct < minPercentage) {
+                    minPercentage = pct;
+                }
+            });
+        } else {
+            // 显示最低配额模型
+            let lowestPct = 100;
+            let lowestModel = snapshot.models[0];
+
+            snapshot.models.forEach(m => {
+                const pct = m.remainingPercentage ?? 0;
+                if (pct < lowestPct) {
+                    lowestPct = pct;
+                    lowestModel = m;
+                }
+            });
+
+            if (lowestModel) {
+                statusTextParts.push(`${t('statusBar.lowest')}: ${Math.floor(lowestPct)}%`);
+                minPercentage = lowestPct;
+            }
         }
     }
 
@@ -371,6 +509,11 @@ function handleOfflineState(): void {
         showPromptCredits: false,
         pinnedModels: [],
         modelOrder: [],
+        groupingEnabled: false,
+        groupCustomNames: {},
+        groupingShowInStatusBar: false,
+        pinnedGroups: [],
+        groupOrder: [],
     });
 }
 

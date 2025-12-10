@@ -84,6 +84,11 @@ export class CockpitHUD {
                 showPromptCredits: config.showPromptCredits,
                 pinnedModels: config.pinnedModels,
                 modelOrder: config.modelOrder,
+                groupingEnabled: config.groupingEnabled,
+                groupCustomNames: config.groupingCustomNames,
+                groupingShowInStatusBar: config.groupingShowInStatusBar,
+                pinnedGroups: config.pinnedGroups,
+                groupOrder: config.groupOrder,
             });
         }
     }
@@ -181,6 +186,18 @@ export class CockpitHUD {
                 timeUntilResetFormatted: m.timeUntilResetFormatted,
                 resetTimeDisplay: m.resetTimeDisplay,
             })),
+            groups: snapshot.groups?.map(g => ({
+                groupId: g.groupId,
+                groupName: g.groupName,
+                remainingPercentage: g.remainingPercentage,
+                resetTimeDisplay: g.resetTimeDisplay,
+                timeUntilResetFormatted: g.timeUntilResetFormatted,
+                isExhausted: g.isExhausted,
+                models: g.models.map(m => ({
+                    label: m.label,
+                    modelId: m.modelId,
+                })),
+            })),
         };
     }
 
@@ -250,6 +267,9 @@ export class CockpitHUD {
             </button>
             <button id="reset-order-btn" class="refresh-btn" title="Reset to default order">
                 ${t('dashboard.resetOrder')}
+            </button>
+            <button id="toggle-grouping-btn" class="refresh-btn" title="${t('grouping.toggleHint')}">
+                ${t('grouping.title')}
             </button>
             <button id="toggle-profile-btn" class="refresh-btn" title="${t('profile.togglePlan')}">
                 ${t('profile.planDetails')}

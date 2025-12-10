@@ -39,6 +39,26 @@ export interface ModelQuotaInfo {
     resetTimeDisplay: string;
 }
 
+/** 配额分组 - 共享相同配额的模型集合 */
+export interface QuotaGroup {
+    /** 分组唯一标识 (基于 remainingFraction + resetTime 生成) */
+    groupId: string;
+    /** 分组名称 (用户自定义或自动生成) */
+    groupName: string;
+    /** 分组内的模型列表 */
+    models: ModelQuotaInfo[];
+    /** 共享的剩余百分比 */
+    remainingPercentage: number;
+    /** 共享的重置时间 */
+    resetTime: Date;
+    /** 格式化的重置时间显示 */
+    resetTimeDisplay: string;
+    /** 格式化的重置倒计时 */
+    timeUntilResetFormatted: string;
+    /** 是否已耗尽 */
+    isExhausted: boolean;
+}
+
 /** 配额快照 */
 export interface QuotaSnapshot {
     /** 时间戳 */
@@ -49,6 +69,8 @@ export interface QuotaSnapshot {
     userInfo?: UserInfo;
     /** 模型列表 */
     models: ModelQuotaInfo[];
+    /** 配额分组 (开启分组功能时生成) */
+    groups?: QuotaGroup[];
     /** 连接状态 */
     isConnected: boolean;
     /** 错误信息 */
@@ -218,13 +240,26 @@ export type WebviewMessageType =
     | 'resetOrder'
     | 'retry'
     | 'openLogs'
-    | 'rerender';
+    | 'rerender'
+    | 'renameGroup'
+    | 'toggleGrouping'
+    | 'promptRenameGroup'
+    | 'toggleGroupPin'
+    | 'updateGroupOrder';
 
 /** Webview 消息 */
 export interface WebviewMessage {
     command: WebviewMessageType;
     modelId?: string;
     order?: string[];
+    /** 分组 ID */
+    groupId?: string;
+    /** 分组新名称 */
+    groupName?: string;
+    /** 分组当前名称 (用于 promptRenameGroup) */
+    currentName?: string;
+    /** 分组内所有模型 ID */
+    modelIds?: string[];
 }
 
 /** Dashboard 配置 */
@@ -235,6 +270,16 @@ export interface DashboardConfig {
     pinnedModels: string[];
     /** 模型顺序 */
     modelOrder: string[];
+    /** 是否启用分组显示 */
+    groupingEnabled: boolean;
+    /** 分组自定义名称映射 (modelId -> groupName) */
+    groupCustomNames: Record<string, string>;
+    /** 是否在状态栏显示分组 */
+    groupingShowInStatusBar: boolean;
+    /** 置顶的分组 */
+    pinnedGroups: string[];
+    /** 分组顺序 */
+    groupOrder: string[];
 }
 
 /** 状态栏更新数据 */

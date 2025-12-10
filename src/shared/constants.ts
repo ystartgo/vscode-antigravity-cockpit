@@ -58,6 +58,11 @@ export const CONFIG_KEYS = {
     LOG_LEVEL: 'logLevel',
     NOTIFICATION_ENABLED: 'notificationEnabled',
     STATUS_BAR_FORMAT: 'statusBarFormat',
+    GROUPING_ENABLED: 'groupingEnabled',
+    GROUPING_CUSTOM_NAMES: 'groupingCustomNames',
+    GROUPING_SHOW_IN_STATUS_BAR: 'groupingShowInStatusBar',
+    PINNED_GROUPS: 'pinnedGroups',
+    GROUP_ORDER: 'groupOrder',
 } as const;
 
 /** 状态栏显示格式 */

@@ -23,6 +23,16 @@ export interface CockpitConfig {
     notificationEnabled: boolean;
     /** 状态栏显示格式 */
     statusBarFormat: string;
+    /** 是否启用分组显示 */
+    groupingEnabled: boolean;
+    /** 分组自定义名称映射 (modelId -> groupName) */
+    groupingCustomNames: Record<string, string>;
+    /** 是否在状态栏显示分组 */
+    groupingShowInStatusBar: boolean;
+    /** 置顶的分组列表 */
+    pinnedGroups: string[];
+    /** 分组排序顺序 */
+    groupOrder: string[];
 }
 
 /** 配置服务类 */
@@ -54,6 +64,11 @@ class ConfigService {
             logLevel: config.get<string>(CONFIG_KEYS.LOG_LEVEL, LOG_LEVELS.INFO),
             notificationEnabled: config.get<boolean>(CONFIG_KEYS.NOTIFICATION_ENABLED, true),
             statusBarFormat: config.get<string>(CONFIG_KEYS.STATUS_BAR_FORMAT, STATUS_BAR_FORMAT.STANDARD),
+            groupingEnabled: config.get<boolean>(CONFIG_KEYS.GROUPING_ENABLED, false),
+            groupingCustomNames: config.get<Record<string, string>>(CONFIG_KEYS.GROUPING_CUSTOM_NAMES, {}),
+            groupingShowInStatusBar: config.get<boolean>(CONFIG_KEYS.GROUPING_SHOW_IN_STATUS_BAR, false),
+            pinnedGroups: config.get<string[]>(CONFIG_KEYS.PINNED_GROUPS, []),
+            groupOrder: config.get<string[]>(CONFIG_KEYS.GROUP_ORDER, []),
         };
     }
 
@@ -124,6 +139,82 @@ class ConfigService {
      */
     async resetModelOrder(): Promise<void> {
         await this.updateConfig('modelOrder', []);
+    }
+
+    /**
+     * 更新分组名称
+     * 将分组中所有模型关联到指定名称（锚点共识机制）
+     * @param modelIds 分组内的所有模型 ID
+     * @param groupName 新的分组名称
+     */
+    async updateGroupName(modelIds: string[], groupName: string): Promise<void> {
+        const config = this.getConfig();
+        const customNames = { ...config.groupingCustomNames };
+        
+        // 将组内所有模型 ID 都关联到该名称
+        for (const modelId of modelIds) {
+            customNames[modelId] = groupName;
+        }
+        
+        logger.info(`Updating group name for ${modelIds.length} models to: ${groupName}`);
+        await this.updateConfig('groupingCustomNames', customNames);
+    }
+
+    /**
+     * 切换分组显示
+     */
+    async toggleGroupingEnabled(): Promise<boolean> {
+        const config = this.getConfig();
+        const newValue = !config.groupingEnabled;
+        await this.updateConfig('groupingEnabled', newValue);
+        return newValue;
+    }
+
+    /**
+     * 切换分组状态栏显示
+     */
+    async toggleGroupingStatusBar(): Promise<boolean> {
+        const config = this.getConfig();
+        const newValue = !config.groupingShowInStatusBar;
+        await this.updateConfig('groupingShowInStatusBar', newValue);
+        return newValue;
+    }
+
+    /**
+     * 切换分组置顶状态
+     */
+    async togglePinnedGroup(groupId: string): Promise<string[]> {
+        logger.info(`Toggling pin state for group: ${groupId}`);
+        const config = this.getConfig();
+        let pinnedGroups = [...config.pinnedGroups];
+
+        const existingIndex = pinnedGroups.indexOf(groupId);
+
+        if (existingIndex > -1) {
+            logger.info(`Group ${groupId} found at index ${existingIndex}, removing.`);
+            pinnedGroups.splice(existingIndex, 1);
+        } else {
+            logger.info(`Group ${groupId} not found, adding.`);
+            pinnedGroups.push(groupId);
+        }
+
+        logger.info(`New pinned groups: ${JSON.stringify(pinnedGroups)}`);
+        await this.updateConfig('pinnedGroups', pinnedGroups);
+        return pinnedGroups;
+    }
+
+    /**
+     * 更新分组顺序
+     */
+    async updateGroupOrder(order: string[]): Promise<void> {
+        await this.updateConfig('groupOrder', order);
+    }
+
+    /**
+     * 重置分组排序
+     */
+    async resetGroupOrder(): Promise<void> {
+        await this.updateConfig('groupOrder', []);
     }
 
     /**

@@ -717,4 +717,79 @@ input:checked + .slider:before {
     opacity: 1;
 }
 
+/* ============ 分组卡片样式 ============ */
 
+.group-card {
+    border: 1px solid var(--accent);
+    background: linear-gradient(135deg, var(--card-bg) 0%, rgba(47, 129, 247, 0.05) 100%);
+}
+
+.group-card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 6px 20px rgba(47, 129, 247, 0.2);
+}
+
+.group-icon {
+    font-size: 18px;
+    margin-right: 6px;
+}
+
+.group-name {
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.group-name:hover {
+    color: var(--accent);
+}
+
+.rename-group-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    opacity: 0.6;
+}
+
+.rename-group-btn:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.group-models {
+    width: 100%;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border-color);
+}
+
+.group-models-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.group-models-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.group-model-tag {
+    font-size: 11px;
+    padding: 3px 8px;
+    background: rgba(47, 129, 247, 0.15);
+    border: 1px solid rgba(47, 129, 247, 0.3);
+    border-radius: 12px;
+    color: var(--text-primary);
+    white-space: nowrap;
+}
+
+.tag.disabled {
+    background-color: rgba(139, 148, 158, 0.2);
+    color: var(--text-secondary);
+    border: 1px solid rgba(139, 148, 158, 0.3);
+}

@@ -10,7 +10,8 @@ import {
     ModelQuotaInfo, 
     PromptCreditsInfo, 
     ServerUserStatusResponse,
-    ClientModelConfig, 
+    ClientModelConfig,
+    QuotaGroup,
 } from '../shared/types';
 import { logger } from '../shared/log_service';
 import { configService } from '../shared/config_service';
@@ -373,11 +374,96 @@ export class ReactorCore {
             return a.label.localeCompare(b.label);
         });
 
+        // 分组逻辑：根据 remainingFraction + resetTime 生成指纹进行分组
+        const config = configService.getConfig();
+        let groups: QuotaGroup[] | undefined;
+        
+        if (config.groupingEnabled) {
+            const groupMap = new Map<string, ModelQuotaInfo[]>();
+            
+            // 根据配额指纹进行分组
+            for (const model of models) {
+                const fingerprint = `${model.remainingFraction?.toFixed(6)}_${model.resetTime.getTime()}`;
+                if (!groupMap.has(fingerprint)) {
+                    groupMap.set(fingerprint, []);
+                }
+                groupMap.get(fingerprint)!.push(model);
+            }
+            
+            // 转换为 QuotaGroup 数组
+            groups = [];
+            let groupIndex = 1;
+            
+            for (const [fingerprint, groupModels] of groupMap) {
+                // 锚点共识：查找组内模型的自定义名称
+                let groupName = '';
+                const customNames = config.groupingCustomNames;
+                
+                // 统计每个自定义名称的投票数
+                const nameVotes = new Map<string, number>();
+                for (const model of groupModels) {
+                    const customName = customNames[model.modelId];
+                    if (customName) {
+                        nameVotes.set(customName, (nameVotes.get(customName) || 0) + 1);
+                    }
+                }
+                
+                // 选择投票数最多的名称
+                if (nameVotes.size > 0) {
+                    let maxVotes = 0;
+                    for (const [name, votes] of nameVotes) {
+                        if (votes > maxVotes) {
+                            maxVotes = votes;
+                            groupName = name;
+                        }
+                    }
+                }
+                
+                // 如果没有自定义名称，使用默认名称
+                if (!groupName) {
+                    if (groupModels.length === 1) {
+                        groupName = groupModels[0].label;
+                    } else {
+                        groupName = `Group ${groupIndex}`;
+                    }
+                }
+                
+                const firstModel = groupModels[0];
+                groups.push({
+                    groupId: fingerprint,
+                    groupName,
+                    models: groupModels,
+                    remainingPercentage: firstModel.remainingPercentage ?? 0,
+                    resetTime: firstModel.resetTime,
+                    resetTimeDisplay: firstModel.resetTimeDisplay,
+                    timeUntilResetFormatted: firstModel.timeUntilResetFormatted,
+                    isExhausted: firstModel.isExhausted,
+                });
+                
+                groupIndex++;
+            }
+            
+            // 按组内模型在原始列表中的最小索引排序，保持相对顺序
+            const modelIndexMap = new Map<string, number>();
+            models.forEach((m, i) => modelIndexMap.set(m.modelId, i));
+
+            groups.sort((a, b) => {
+                // 获取 A 组中最靠前的模型索引
+                const minIndexA = Math.min(...a.models.map(m => modelIndexMap.get(m.modelId) ?? 99999));
+                // 获取 B 组中最靠前的模型索引
+                const minIndexB = Math.min(...b.models.map(m => modelIndexMap.get(m.modelId) ?? 99999));
+                return minIndexA - minIndexB;
+            });
+            
+            logger.debug(`Grouping enabled: ${groups.length} groups created`);
+        }
+
         return {
             timestamp: new Date(),
             promptCredits,
             userInfo,
             models,
+            groups,
             isConnected: true,
         };
     }

@@ -56,6 +56,12 @@
         if (toggleProfileBtn) {
             toggleProfileBtn.addEventListener('click', handleToggleProfile);
         }
+        
+        // 分组开关按钮
+        const toggleGroupingBtn = document.getElementById('toggle-grouping-btn');
+        if (toggleGroupingBtn) {
+            toggleGroupingBtn.addEventListener('click', handleToggleGrouping);
+        }
 
         // 事件委托：处理置顶开关
         dashboard.addEventListener('change', (e) => {
@@ -92,6 +98,24 @@
             } else {
                 btn.textContent = (i18n['profile.planDetails'] || 'Plan') + ' ▲';
                 btn.classList.remove('toggle-off');
+            }
+        }
+    }
+    
+    function handleToggleGrouping() {
+        // 发送切换分组的消息给扩展
+        vscode.postMessage({ command: 'toggleGrouping' });
+    }
+    
+    function updateToggleGroupingButton(enabled) {
+        const btn = document.getElementById('toggle-grouping-btn');
+        if (btn) {
+            if (enabled) {
+                btn.textContent = (i18n['grouping.title'] || 'Groups') + ' ▲';
+                btn.classList.remove('toggle-off');
+            } else {
+                btn.textContent = (i18n['grouping.title'] || 'Groups') + ' ▼';
+                btn.classList.add('toggle-off');
             }
         }
     }
@@ -236,9 +260,24 @@
             }
 
             // 保存新顺序
-            const newOrder = Array.from(dashboard.querySelectorAll('.card'))
-                .map(card => card.getAttribute('data-id'));
-            vscode.postMessage({ command: 'updateOrder', order: newOrder });
+            const allCards = Array.from(dashboard.querySelectorAll('.card'));
+            
+            // 检查是否是分组卡片
+            if (dragSrcEl.classList.contains('group-card')) {
+                const groupOrder = allCards
+                    .filter(card => card.classList.contains('group-card') && card.hasAttribute('data-group-id'))
+                    .map(card => card.getAttribute('data-group-id'))
+                    .filter(id => id !== null);
+                
+                vscode.postMessage({ command: 'updateGroupOrder', order: groupOrder });
+            } else {
+                const modelOrder = allCards
+                    .filter(card => !card.classList.contains('group-card') && card.hasAttribute('data-id'))
+                    .map(card => card.getAttribute('data-id'))
+                    .filter(id => id !== null);
+                
+                vscode.postMessage({ command: 'updateOrder', order: modelOrder });
+            }
         }
 
         return false;
@@ -269,6 +308,32 @@
         if (snapshot.userInfo) {
             renderUserProfile(snapshot.userInfo);
         }
+        
+        // 更新分组按钮状态
+        updateToggleGroupingButton(config?.groupingEnabled);
+        
+        // 如果启用了分组显示，渲染分组卡片
+        if (config?.groupingEnabled && snapshot.groups && snapshot.groups.length > 0) {
+            // 分组排序：支持自定义顺序
+            let groups = [...snapshot.groups];
+            if (config?.groupOrder?.length > 0) {
+                const orderMap = new Map();
+                config.groupOrder.forEach((id, index) => orderMap.set(id, index));
+                
+                groups.sort((a, b) => {
+                    const idxA = orderMap.has(a.groupId) ? orderMap.get(a.groupId) : 99999;
+                    const idxB = orderMap.has(b.groupId) ? orderMap.get(b.groupId) : 99999;
+                    if (idxA !== idxB) return idxA - idxB;
+                    // 如果没有自定义顺序，按配额百分比升序（低的在前）
+                    return a.remainingPercentage - b.remainingPercentage;
+                });
+            }
+            
+            groups.forEach(group => {
+                renderGroupCard(group, config?.pinnedGroups || []);
+            });
+            return;
+        }
 
         // 模型排序
         let models = [...snapshot.models];
@@ -282,8 +347,6 @@
                 return idxA - idxB;
             });
         }
-
-
 
         // 渲染模型卡片
         models.forEach(model => {
@@ -451,6 +514,97 @@
                 <span class="detail-value">${value}</span>
             </div>
         `;
+    }
+
+    function renderGroupCard(group, pinnedGroups) {
+        const pct = group.remainingPercentage || 0;
+        const color = getHealthColor(pct);
+        const isPinned = pinnedGroups && pinnedGroups.includes(group.groupId);
+        
+        const card = document.createElement('div');
+        card.className = 'card group-card draggable';
+        card.setAttribute('data-id', group.groupId);
+        card.setAttribute('data-group-id', group.groupId);
+        card.setAttribute('draggable', 'true');
+
+        // 绑定拖拽事件
+        card.addEventListener('dragstart', handleDragStart, false);
+        card.addEventListener('dragenter', handleDragEnter, false);
+        card.addEventListener('dragover', handleDragOver, false);
+        card.addEventListener('dragleave', handleDragLeave, false);
+        card.addEventListener('drop', handleDrop, false);
+        card.addEventListener('dragend', handleDragEnd, false);
+
+        // 生成组内模型列表
+        const modelList = group.models.map(m => 
+            `<span class="group-model-tag">${m.label}</span>`
+        ).join('');
+
+        card.innerHTML = `
+            <div class="card-title">
+                <span class="drag-handle" data-tooltip="${i18n['dashboard.dragHint'] || 'Drag to reorder'}">⋮⋮</span>
+                <span class="group-icon">📦</span>
+                <span class="label group-name">${group.groupName}</span>
+                <div class="actions">
+                    <button class="rename-group-btn icon-btn" data-group-id="${group.groupId}" title="${i18n['grouping.rename'] || 'Rename'}">✏️</button>
+                    <label class="switch" data-tooltip="${i18n['dashboard.pinHint'] || 'Pin to Status Bar'}">
+                        <input type="checkbox" class="group-pin-toggle" data-group-id="${group.groupId}" ${isPinned ? 'checked' : ''}>
+                        <span class="slider"></span>
+                    </label>
+                    <span class="status-dot" style="background-color: ${color}"></span>
+                </div>
+            </div>
+            <div class="progress-circle" style="background: conic-gradient(${color} ${pct}%, var(--border-color) ${pct}%);">
+                <div class="percentage">${pct.toFixed(2)}%</div>
+            </div>
+            <div class="info-row">
+                <span>${i18n['dashboard.resetIn'] || 'Reset In'}</span>
+                <span class="info-value">${group.timeUntilResetFormatted}</span>
+            </div>
+            <div class="info-row">
+                <span>${i18n['dashboard.resetTime'] || 'Reset Time'}</span>
+                <span class="info-value small">${group.resetTimeDisplay || 'N/A'}</span>
+            </div>
+            <div class="info-row">
+                <span>${i18n['dashboard.status'] || 'Status'}</span>
+                <span class="info-value" style="color: ${color}">
+                    ${group.isExhausted 
+                        ? (i18n['dashboard.exhausted'] || 'Exhausted') 
+                        : (i18n['dashboard.active'] || 'Active')}
+                </span>
+            </div>
+            <div class="group-models">
+                <div class="group-models-label">${i18n['grouping.models'] || 'Models'} (${group.models.length}):</div>
+                <div class="group-models-list">${modelList}</div>
+            </div>
+        `;
+        
+        // 绑定重命名按钮事件 - 发送消息让扩展显示输入框
+        const renameBtn = card.querySelector('.rename-group-btn');
+        if (renameBtn) {
+            renameBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                vscode.postMessage({ 
+                    command: 'promptRenameGroup', 
+                    groupId: group.groupId,
+                    currentName: group.groupName,
+                    modelIds: group.models.map(m => m.modelId)
+                });
+            });
+        }
+        
+        // 绑定 pin 开关事件
+        const pinToggle = card.querySelector('.group-pin-toggle');
+        if (pinToggle) {
+            pinToggle.addEventListener('change', (e) => {
+                vscode.postMessage({ 
+                    command: 'toggleGroupPin', 
+                    groupId: group.groupId
+                });
+            });
+        }
+        
+        dashboard.appendChild(card);
     }
 
     function renderModelCard(model, pinnedModels) {
