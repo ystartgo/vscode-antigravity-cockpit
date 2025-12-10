@@ -125,7 +125,7 @@
         if (message.type === 'telemetry_update') {
             isRefreshing = false;
             updateRefreshButton();
-            render(message.data, message.config);
+            render(message.data, message.config, message.history);
         }
     }
 
@@ -255,7 +255,7 @@
 
     // ============ 渲染 ============
 
-    function render(snapshot, config) {
+    function render(snapshot, config, history) {
         statusDiv.style.display = 'none';
         dashboard.innerHTML = '';
 
@@ -283,12 +283,15 @@
             });
         }
 
-
-
         // 渲染模型卡片
         models.forEach(model => {
             renderModelCard(model, config?.pinnedModels || []);
         });
+        
+        // 渲染历史趋势图表
+        if (history && history.length > 1) {
+            renderHistoryChart(history, models);
+        }
     }
 
     function renderOfflineCard(errorMessage) {
@@ -503,6 +506,101 @@
                         : (i18n['dashboard.active'] || 'Active')}
                 </span>
             </div>
+        `;
+        dashboard.appendChild(card);
+    }
+
+    // ============ 历史趋势图表 ============
+
+    // 图表颜色调色板
+    const chartColors = [
+        '#2f81f7', '#238636', '#d29922', '#da3633', 
+        '#8b5cf6', '#3fb950', '#f78166', '#a371f7'
+    ];
+
+    function renderHistoryChart(history, models) {
+        const card = document.createElement('div');
+        card.className = 'card full-width history-chart-card';
+        
+        // 获取所有模型 ID
+        const modelIds = models.map(m => m.modelId);
+        const modelLabels = {};
+        models.forEach(m => { modelLabels[m.modelId] = m.label; });
+        
+        // SVG 尺寸
+        const width = 600;
+        const height = 200;
+        const padding = { top: 20, right: 20, bottom: 30, left: 40 };
+        const chartWidth = width - padding.left - padding.right;
+        const chartHeight = height - padding.top - padding.bottom;
+        
+        // 计算时间范围
+        const timestamps = history.map(p => p.timestamp);
+        const minTime = Math.min(...timestamps);
+        const maxTime = Math.max(...timestamps);
+        const timeRange = maxTime - minTime || 1;
+        
+        // 生成每个模型的折线路径
+        const paths = modelIds.map((modelId, idx) => {
+            const color = chartColors[idx % chartColors.length];
+            let pathD = '';
+            
+            history.forEach((point, i) => {
+                const pct = point.models[modelId];
+                if (pct !== undefined) {
+                    const x = padding.left + ((point.timestamp - minTime) / timeRange) * chartWidth;
+                    const y = padding.top + chartHeight - (pct / 100) * chartHeight;
+                    pathD += (pathD ? ' L ' : 'M ') + `${x.toFixed(1)} ${y.toFixed(1)}`;
+                }
+            });
+            
+            if (!pathD) return '';
+            
+            return `<path class="chart-line" d="${pathD}" stroke="${color}" fill="none" stroke-width="2"/>`;
+        }).join('');
+        
+        // Y 轴刻度
+        const yTicks = [0, 25, 50, 75, 100].map(pct => {
+            const y = padding.top + chartHeight - (pct / 100) * chartHeight;
+            return `
+                <line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" stroke="var(--border-color)" stroke-dasharray="2"/>
+                <text x="${padding.left - 5}" y="${y + 4}" text-anchor="end" fill="var(--text-secondary)" font-size="10">${pct}%</text>
+            `;
+        }).join('');
+        
+        // 时间标签
+        const formatTime = (ts) => {
+            const d = new Date(ts);
+            return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+        };
+        
+        const xTickCount = 4;
+        const xTicks = [];
+        for (let i = 0; i <= xTickCount; i++) {
+            const ts = minTime + (timeRange * i / xTickCount);
+            const x = padding.left + (chartWidth * i / xTickCount);
+            xTicks.push(`<text x="${x}" y="${height - 5}" text-anchor="middle" fill="var(--text-secondary)" font-size="10">${formatTime(ts)}</text>`);
+        }
+        
+        // 图例
+        const legendItems = modelIds.slice(0, 6).map((modelId, idx) => {
+            const color = chartColors[idx % chartColors.length];
+            const label = modelLabels[modelId] || modelId;
+            return `<span class="legend-item"><span class="legend-dot" style="background:${color}"></span>${label}</span>`;
+        }).join('');
+
+        card.innerHTML = `
+            <div class="card-title">
+                <span class="label">${i18n['chart.title'] || 'Usage Trend'}</span>
+            </div>
+            <div class="chart-container">
+                <svg class="chart-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet">
+                    ${yTicks}
+                    ${xTicks.join('')}
+                    ${paths}
+                </svg>
+            </div>
+            <div class="chart-legend">${legendItems}</div>
         `;
         dashboard.appendChild(card);
     }

@@ -63,6 +63,10 @@ const translations: Record<SupportedLocale, TranslationMap> = {
         'help.retry': 'Retry Connection',
         'help.openLogs': 'Open Logs',
         
+        // Chart
+        'chart.title': 'Usage Trend',
+        'chart.noData': 'No history data',
+        
         // User Profile
         'profile.plan': 'Plan',
         'profile.tier': 'Tier',
@@ -151,6 +155,10 @@ const translations: Record<SupportedLocale, TranslationMap> = {
         'help.startAntigravity': '启动 Antigravity',
         'help.retry': '重试连接',
         'help.openLogs': '查看日志',
+        
+        // Chart
+        'chart.title': '使用趋势',
+        'chart.noData': '暂无历史数据',
 
         // User Profile
         'profile.plan': '计划',

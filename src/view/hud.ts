@@ -9,6 +9,7 @@ import * as path from 'path';
 import { QuotaSnapshot, DashboardConfig, WebviewMessage } from '../shared/types';
 import { logger } from '../shared/log_service';
 import { configService } from '../shared/config_service';
+import { historyService, HistoryPoint } from '../shared/history_service';
 import { i18n, t } from '../shared/i18n';
 
 /**
@@ -113,10 +114,14 @@ export class CockpitHUD {
             // 转换数据为 Webview 兼容格式
             const webviewData = this.convertToWebviewFormat(snapshot);
             
+            // 获取历史数据
+            const history = historyService.getHistory();
+            
             panel.webview.postMessage({
                 type: 'telemetry_update',
                 data: webviewData,
                 config: config,
+                history: history,
             });
         }
     }

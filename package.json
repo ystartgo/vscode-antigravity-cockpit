@@ -3,7 +3,7 @@
   "displayName": "Antigravity Cockpit",
   "icon": "assets/icon.png",
   "description": "A premium, dashboard-style quota monitor for Antigravity AI.",
-  "version": "1.1.151",
+  "version": "1.1.152",
   "publisher": "jlcodes",
   "engines": {
     "vscode": "^1.90.0"
@@ -93,6 +93,17 @@
           "type": "boolean",
           "default": true,
           "description": "Show notifications when quota is exhausted or running low."
+        },
+        "agCockpit.historyRetentionDays": {
+          "type": "number",
+          "default": 7,
+          "enum": [1, 7, 30],
+          "enumDescriptions": [
+            "Keep 1 day of history",
+            "Keep 7 days of history (default)",
+            "Keep 30 days of history"
+          ],
+          "description": "How many days of quota history to retain for the trend chart."
         },
         "agCockpit.statusBarFormat": {
           "type": "string",
