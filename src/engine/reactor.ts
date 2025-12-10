@@ -14,7 +14,6 @@ import {
 } from '../shared/types';
 import { logger } from '../shared/log_service';
 import { configService } from '../shared/config_service';
-import { historyService } from '../shared/history_service';
 import { t } from '../shared/i18n';
 import { TIMING, API_ENDPOINTS, QUOTA_THRESHOLDS } from '../shared/constants';
 
@@ -161,9 +160,6 @@ export class ReactorCore {
 
             const telemetry = this.decodeSignal(raw);
             this.lastSnapshot = telemetry; // Cache the latest snapshot
-            
-            // 记录历史数据
-            historyService.record(telemetry);
 
             // 打印关键配额信息
             const maxLabelLen = Math.max(...telemetry.models.map(m => m.label.length));

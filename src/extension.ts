@@ -8,7 +8,6 @@ import { ProcessHunter } from './engine/hunter';
 import { ReactorCore } from './engine/reactor';
 import { logger } from './shared/log_service';
 import { configService, CockpitConfig } from './shared/config_service';
-import { historyService } from './shared/history_service';
 import { t } from './shared/i18n';
 import { CockpitHUD } from './view/hud';
 import { QUOTA_THRESHOLDS, STATUS_BAR_FORMAT } from './shared/constants';
@@ -28,9 +27,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // 初始化日志
     logger.init();
     logger.info('Antigravity Cockpit Systems: Online');
-
-    // 初始化历史服务
-    historyService.init(context);
 
     // 初始化模块
     hunter = new ProcessHunter();
