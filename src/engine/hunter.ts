@@ -9,7 +9,7 @@ import * as https from 'https';
 import * as process from 'process';
 import { WindowsStrategy, UnixStrategy } from './strategies';
 import { logger } from '../shared/log_service';
-import { EnvironmentScanResult, PlatformStrategy } from '../shared/types';
+import { EnvironmentScanResult, PlatformStrategy, ProcessInfo } from '../shared/types';
 import { TIMING, PROCESS_NAMES, API_ENDPOINTS } from '../shared/constants';
 
 const execAsync = promisify(exec);
@@ -52,8 +52,31 @@ export class ProcessHunter {
     async scanEnvironment(maxAttempts: number = 3): Promise<EnvironmentScanResult | null> {
         logger.info(`Scanning environment, max attempts: ${maxAttempts}`);
 
+        // 第一阶段：按进程名查找
+        const resultByName = await this.scanByProcessName(maxAttempts);
+        if (resultByName) {
+            return resultByName;
+        }
+
+        // 第二阶段：按关键字查找（备用方案）
+        logger.info('Process name search failed, trying keyword search (csrf_token)...');
+        const resultByKeyword = await this.scanByKeyword();
+        if (resultByKeyword) {
+            return resultByKeyword;
+        }
+
+        // 所有方法都失败了，执行诊断
+        await this.runDiagnostics();
+
+        return null;
+    }
+
+    /**
+     * 按进程名扫描
+     */
+    private async scanByProcessName(maxAttempts: number): Promise<EnvironmentScanResult | null> {
         for (let i = 0; i < maxAttempts; i++) {
-            logger.debug(`Attempt ${i + 1}/${maxAttempts}...`);
+            logger.debug(`Attempt ${i + 1}/${maxAttempts} (by process name)...`);
 
             try {
                 const cmd = this.strategy.getProcessListCommand(this.targetProcess);
@@ -71,22 +94,7 @@ export class ProcessHunter {
 
                 if (info) {
                     logger.info(`✅ Found Process: PID=${info.pid}, ExtPort=${info.extensionPort}`);
-
-                    const ports = await this.identifyPorts(info.pid);
-                    logger.debug(`Listening Ports: ${ports.join(', ')}`);
-
-                    if (ports.length > 0) {
-                        const validPort = await this.verifyConnection(ports, info.csrfToken);
-
-                        if (validPort) {
-                            logger.info(`✅ Connection Logic Verified: ${validPort}`);
-                            return {
-                                extensionPort: info.extensionPort,
-                                connectPort: validPort,
-                                csrfToken: info.csrfToken,
-                            };
-                        }
-                    }
+                    return await this.verifyAndConnect(info);
                 }
             } catch (e) {
                 const error = e instanceof Error ? e : new Error(String(e));
@@ -114,6 +122,97 @@ export class ProcessHunter {
         }
 
         return null;
+    }
+
+    /**
+     * 按关键字扫描（查找包含 csrf_token 的进程）
+     */
+    private async scanByKeyword(): Promise<EnvironmentScanResult | null> {
+        // 仅 Windows PowerShell 支持按关键字查找
+        if (process.platform !== 'win32' || !(this.strategy instanceof WindowsStrategy)) {
+            return null;
+        }
+
+        const winStrategy = this.strategy as WindowsStrategy;
+        if (!winStrategy.isUsingPowershell()) {
+            return null;
+        }
+
+        try {
+            const cmd = winStrategy.getProcessByKeywordCommand();
+            logger.debug(`Keyword search command: ${cmd}`);
+
+            const { stdout, stderr } = await execAsync(cmd, { 
+                timeout: TIMING.PROCESS_CMD_TIMEOUT_MS, 
+            });
+
+            if (stderr) {
+                logger.warn(`StdErr: ${stderr}`);
+            }
+
+            const info = this.strategy.parseProcessInfo(stdout);
+
+            if (info) {
+                logger.info(`✅ Found Process by keyword: PID=${info.pid}`);
+                return await this.verifyAndConnect(info);
+            }
+        } catch (e) {
+            const error = e instanceof Error ? e : new Error(String(e));
+            logger.error(`Keyword search failed: ${error.message}`);
+        }
+
+        return null;
+    }
+
+    /**
+     * 验证并建立连接
+     */
+    private async verifyAndConnect(info: ProcessInfo): Promise<EnvironmentScanResult | null> {
+        const ports = await this.identifyPorts(info.pid);
+        logger.debug(`Listening Ports: ${ports.join(', ')}`);
+
+        if (ports.length > 0) {
+            const validPort = await this.verifyConnection(ports, info.csrfToken);
+
+            if (validPort) {
+                logger.info(`✅ Connection Logic Verified: ${validPort}`);
+                return {
+                    extensionPort: info.extensionPort,
+                    connectPort: validPort,
+                    csrfToken: info.csrfToken,
+                };
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * 运行诊断命令，列出所有相关进程
+     */
+    private async runDiagnostics(): Promise<void> {
+        logger.warn('⚠️ All scan attempts failed, running diagnostics...');
+        logger.info(`Target process name: ${this.targetProcess}`);
+        
+        try {
+            const diagCmd = this.strategy.getDiagnosticCommand();
+            logger.debug(`Diagnostic command: ${diagCmd}`);
+            
+            const { stdout, stderr } = await execAsync(diagCmd, { timeout: 5000 });
+            
+            if (stdout.trim()) {
+                logger.info(`📋 Related processes found:\n${stdout}`);
+            } else {
+                logger.warn('❌ No related processes found (language_server/antigravity)');
+            }
+            
+            if (stderr) {
+                logger.warn(`Diagnostic stderr: ${stderr}`);
+            }
+        } catch (e) {
+            const error = e instanceof Error ? e : new Error(String(e));
+            logger.error(`Diagnostic command failed: ${error.message}`);
+        }
     }
 
     /**

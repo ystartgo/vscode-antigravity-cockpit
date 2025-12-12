@@ -347,6 +347,8 @@ export interface PlatformStrategy {
     getPortListCommand(pid: number): string;
     /** 解析监听端口 */
     parseListeningPorts(stdout: string): number[];
+    /** 获取诊断命令（列出所有相关进程，用于调试） */
+    getDiagnosticCommand(): string;
     /** 获取错误信息 */
     getErrorMessages(): {
         processNotFound: string;

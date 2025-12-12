@@ -25,20 +25,45 @@ export class WindowsStrategy implements PlatformStrategy {
      */
     private isAntigravityProcess(commandLine: string): boolean {
         const lowerCmd = commandLine.toLowerCase();
+        // 必须包含 csrf_token（这是 Antigravity 进程最独特的标识）
+        if (!commandLine.includes('csrf_token')) {
+            return false;
+        }
         if (/--app_data_dir\s+antigravity\b/i.test(commandLine)) {
             return true;
         }
         if (lowerCmd.includes('\\antigravity\\') || lowerCmd.includes('/antigravity/')) {
             return true;
         }
+        // 有 csrf_token 且包含 extension_server_port 也算
+        if (commandLine.includes('extension_server_port')) {
+            return true;
+        }
         return false;
     }
 
+    /**
+     * 按进程名获取进程列表命令
+     */
     getProcessListCommand(processName: string): string {
         if (this.usePowershell) {
-            return `powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"name='${processName}'\\" | Select-Object ProcessId,CommandLine | ConvertTo-Json"`;
+            // 使用单引号包裹 Filter 参数，内部 name 值使用双单引号转义
+            return `powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter 'name=''${processName}''' | Select-Object ProcessId,CommandLine | ConvertTo-Json"`;
         }
         return `wmic process where "name='${processName}'" get ProcessId,CommandLine /format:list`;
+    }
+
+    /**
+     * 按关键字获取进程列表命令（查找所有包含 csrf_token 的进程）
+     * 这是备用方案，当按进程名查找失败时使用
+     */
+    getProcessByKeywordCommand(): string {
+        if (this.usePowershell) {
+            // 查找所有 CommandLine 包含 csrf_token 的进程
+            return `powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'csrf_token' } | Select-Object ProcessId,Name,CommandLine | ConvertTo-Json"`;
+        }
+        // WMIC 不支持按 CommandLine 筛选，返回所有进程
+        return `wmic process get ProcessId,Name,CommandLine /format:list`;
     }
 
     parseProcessInfo(stdout: string): ProcessInfo | null {
@@ -180,6 +205,14 @@ export class WindowsStrategy implements PlatformStrategy {
                     : 'The system has permission to run wmic/PowerShell and netstat commands (auto-fallback supported)',
             ],
         };
+    }
+
+    getDiagnosticCommand(): string {
+        // 列出所有包含 'language' 或 'antigravity' 的进程
+        if (this.usePowershell) {
+            return `powershell -NoProfile -Command "Get-Process | Where-Object { $_.ProcessName -match 'language|antigravity' } | Select-Object Id,ProcessName,Path | Format-Table -AutoSize"`;
+        }
+        return `wmic process where "name like '%language%' or name like '%antigravity%'" get ProcessId,Name,CommandLine /format:list`;
     }
 }
 
@@ -404,6 +437,11 @@ export class UnixStrategy implements PlatformStrategy {
             commandNotAvailable: 'Command check failed',
             requirements: ['lsof or netstat'],
         };
+    }
+
+    getDiagnosticCommand(): string {
+        // 列出所有包含 'language' 或 'antigravity' 的进程
+        return `ps aux | grep -E 'language|antigravity' | grep -v grep`;
     }
 }
 
