@@ -304,6 +304,13 @@ export class CockpitHUD {
             </div>
             <div class="modal-body">
                 <div class="setting-item">
+                    <label for="notification-enabled" class="checkbox-label">
+                        <input type="checkbox" id="notification-enabled" checked>
+                        <span>🔔 ${t('threshold.enableNotification')}</span>
+                    </label>
+                    <p class="setting-hint">${t('threshold.enableNotificationHint')}</p>
+                </div>
+                <div class="setting-item">
                     <label for="warning-threshold">🟡 ${t('threshold.warning')}</label>
                     <div class="setting-input-group">
                         <input type="number" id="warning-threshold" min="5" max="80" value="30">

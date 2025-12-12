@@ -113,11 +113,13 @@
     function openSettingsModal() {
         if (settingsModal) {
             // 从当前配置填充值
+            const notificationCheckbox = document.getElementById('notification-enabled');
             const warningInput = document.getElementById('warning-threshold');
             const criticalInput = document.getElementById('critical-threshold');
+            if (notificationCheckbox) notificationCheckbox.checked = currentConfig.notificationEnabled !== false; // 默认为 true
             if (warningInput) warningInput.value = currentConfig.warningThreshold || 30;
             if (criticalInput) criticalInput.value = currentConfig.criticalThreshold || 10;
-            
+
             settingsModal.classList.remove('hidden');
         }
     }
@@ -129,38 +131,41 @@
     }
     
     function saveSettings() {
+        const notificationCheckbox = document.getElementById('notification-enabled');
         const warningInput = document.getElementById('warning-threshold');
         const criticalInput = document.getElementById('critical-threshold');
-        
+
+        const notificationEnabled = notificationCheckbox?.checked ?? true;
         let warningValue = parseInt(warningInput?.value, 10) || 30;
         let criticalValue = parseInt(criticalInput?.value, 10) || 10;
-        
+
         // 自动钳制到有效范围
         // Warning: 5-80
         if (warningValue < 5) warningValue = 5;
         if (warningValue > 80) warningValue = 80;
-        
+
         // Critical: 1-50, 且必须小于 warning
         if (criticalValue < 1) criticalValue = 1;
         if (criticalValue > 50) criticalValue = 50;
-        
+
         // 确保 critical < warning
         if (criticalValue >= warningValue) {
             criticalValue = warningValue - 1;
             if (criticalValue < 1) criticalValue = 1;
         }
-        
+
         // 更新输入框显示钳制后的值
         if (warningInput) warningInput.value = warningValue;
         if (criticalInput) criticalInput.value = criticalValue;
-        
+
         // 发送到扩展保存
-        vscode.postMessage({ 
-            command: 'updateThresholds', 
+        vscode.postMessage({
+            command: 'updateThresholds',
+            notificationEnabled: notificationEnabled,
             warningThreshold: warningValue,
-            criticalThreshold: criticalValue 
+            criticalThreshold: criticalValue
         });
-        
+
         closeSettingsModal();
         showToast((i18n['threshold.updated'] || 'Thresholds updated to {value}').replace('{value}', `Warning: ${warningValue}%, Critical: ${criticalValue}%`), 'success');
     }

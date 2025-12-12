@@ -297,6 +297,8 @@ export interface WebviewMessage {
     currentName?: string;
     /** 分组内所有模型 ID */
     modelIds?: string[];
+    /** 是否启用通知 (updateThresholds) */
+    notificationEnabled?: boolean;
     /** 警告阈值 (updateThresholds) */
     warningThreshold?: number;
     /** 危险阈值 (updateThresholds) */

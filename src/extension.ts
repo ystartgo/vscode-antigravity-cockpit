@@ -348,10 +348,16 @@ function setupMessageHandling(): void {
             case 'updateThresholds':
                 // 处理从 Dashboard 设置模态框发来的阈值更新
                 if (message.warningThreshold !== undefined && message.criticalThreshold !== undefined) {
+                    const notificationEnabled = message.notificationEnabled as boolean | undefined;
                     const warningVal = message.warningThreshold as number;
                     const criticalVal = message.criticalThreshold as number;
-                    
+
                     if (criticalVal < warningVal && warningVal >= 5 && warningVal <= 80 && criticalVal >= 1 && criticalVal <= 50) {
+                        // 保存通知开关状态
+                        if (notificationEnabled !== undefined) {
+                            await configService.updateConfig('notificationEnabled', notificationEnabled);
+                            logger.info(`Notification enabled: ${notificationEnabled}`);
+                        }
                         await configService.updateConfig('warningThreshold', warningVal);
                         await configService.updateConfig('criticalThreshold', criticalVal);
                         logger.info(`Thresholds updated: warning=${warningVal}%, critical=${criticalVal}%`);
