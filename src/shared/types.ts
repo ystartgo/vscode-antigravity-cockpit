@@ -282,7 +282,9 @@ export type WebviewMessageType =
     | 'toggleGroupPin'
     | 'updateGroupOrder'
     | 'autoGroup'
-    | 'updateThresholds';
+    | 'updateThresholds'
+    | 'renameModel'
+    | 'updateStatusBarFormat';
 
 /** Webview 消息 */
 export interface WebviewMessage {
@@ -303,6 +305,8 @@ export interface WebviewMessage {
     warningThreshold?: number;
     /** 危险阈值 (updateThresholds) */
     criticalThreshold?: number;
+    /** 状态栏显示格式 (updateStatusBarFormat) */
+    statusBarFormat?: string;
 }
 
 /** Dashboard 配置 */
@@ -313,6 +317,8 @@ export interface DashboardConfig {
     pinnedModels: string[];
     /** 模型顺序 */
     modelOrder: string[];
+    /** 模型自定义名称映射 (modelId -> displayName) */
+    modelCustomNames?: Record<string, string>;
     /** 是否启用分组显示 */
     groupingEnabled: boolean;
     /** 分组自定义名称映射 (modelId -> groupName) */
@@ -333,6 +339,8 @@ export interface DashboardConfig {
     criticalThreshold?: number;
     /** 最后成功更新时间 */
     lastSuccessfulUpdate?: Date | null;
+    /** 状态栏显示格式 */
+    statusBarFormat?: string;
 }
 
 /** 状态栏更新数据 */

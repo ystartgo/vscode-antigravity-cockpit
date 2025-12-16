@@ -27,6 +27,8 @@
     let currentConfig = {};
     let renameGroupId = null; // 当前正在重命名的分组 ID
     let renameModelIds = [];  // 当前分组包含的模型 ID
+    let renameModelId = null; // 当前正在重命名的模型 ID（非分组模式）
+    let isRenamingModel = false; // 标记是否正在重命名模型（而非分组）
 
     // 刷新冷却时间（秒），默认 120 秒
     let refreshCooldown = 120;
@@ -140,8 +142,47 @@
             if (warningInput) warningInput.value = currentConfig.warningThreshold || 30;
             if (criticalInput) criticalInput.value = currentConfig.criticalThreshold || 10;
 
+            // 初始化状态栏格式选择器
+            initStatusBarFormatSelector();
+
             settingsModal.classList.remove('hidden');
         }
+    }
+    
+    /**
+     * 初始化状态栏格式选择器
+     */
+    function initStatusBarFormatSelector() {
+        const formatBtns = document.querySelectorAll('.format-btn');
+        const currentFormat = currentConfig.statusBarFormat || 'standard';
+        
+        // 高亮当前选中的格式
+        formatBtns.forEach(btn => {
+            const format = btn.getAttribute('data-format');
+            if (format === currentFormat) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+            
+            // 绑定点击事件（移除旧的事件监听器）
+            btn.onclick = null;
+            btn.addEventListener('click', () => {
+                // 更新选中状态
+                formatBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                // 发送消息到扩展，立即更新状态栏
+                vscode.postMessage({
+                    command: 'updateStatusBarFormat',
+                    statusBarFormat: format
+                });
+                
+                // 显示反馈
+                const formatLabel = btn.querySelector('.format-label')?.textContent || format;
+                showToast((i18n['statusBarFormat.changed'] || 'Status bar: {format}').replace('{format}', formatLabel), 'success');
+            });
+        });
     }
     
     function closeSettingsModal() {
@@ -196,6 +237,31 @@
         if (renameModal) {
             renameGroupId = groupId;
             renameModelIds = modelIds || [];
+            isRenamingModel = false; // 分组重命名模式
+            renameModelId = null;
+            
+            const renameInput = document.getElementById('rename-input');
+            if (renameInput) {
+                renameInput.value = currentName || '';
+                renameInput.focus();
+                renameInput.select();
+            }
+            
+            renameModal.classList.remove('hidden');
+        }
+    }
+    
+    /**
+     * 打开模型重命名模态框（非分组模式）
+     * @param {string} modelId 模型 ID
+     * @param {string} currentName 当前名称
+     */
+    function openModelRenameModal(modelId, currentName) {
+        if (renameModal) {
+            isRenamingModel = true; // 模型重命名模式
+            renameModelId = modelId;
+            renameGroupId = null;
+            renameModelIds = [];
             
             const renameInput = document.getElementById('rename-input');
             if (renameInput) {
@@ -213,6 +279,8 @@
             renameModal.classList.add('hidden');
             renameGroupId = null;
             renameModelIds = [];
+            renameModelId = null;
+            isRenamingModel = false;
         }
     }
     
@@ -221,11 +289,21 @@
         const newName = renameInput?.value?.trim();
         
         if (!newName) {
-            showToast(i18n['grouping.nameEmpty'] || 'Name cannot be empty', 'error');
+            showToast(i18n['model.nameEmpty'] || i18n['grouping.nameEmpty'] || 'Name cannot be empty', 'error');
             return;
         }
         
-        if (renameGroupId && renameModelIds.length > 0) {
+        if (isRenamingModel && renameModelId) {
+            // 模型重命名模式
+            vscode.postMessage({
+                command: 'renameModel',
+                modelId: renameModelId,
+                groupName: newName  // 复用 groupName 字段
+            });
+            
+            showToast((i18n['model.renamed'] || 'Model renamed to {name}').replace('{name}', newName), 'success');
+        } else if (renameGroupId && renameModelIds.length > 0) {
+            // 分组重命名模式
             vscode.postMessage({
                 command: 'renameGroup',
                 groupId: renameGroupId,
@@ -545,7 +623,7 @@
 
         // 渲染模型卡片
         models.forEach(model => {
-            renderModelCard(model, config?.pinnedModels || []);
+            renderModelCard(model, config?.pinnedModels || [], config?.modelCustomNames || {});
         });
     }
 
@@ -810,11 +888,14 @@
         dashboard.appendChild(card);
     }
 
-    function renderModelCard(model, pinnedModels) {
+    function renderModelCard(model, pinnedModels, modelCustomNames) {
         const pct = model.remainingPercentage || 0;
         const color = getHealthColor(pct);
         const isPinned = pinnedModels.includes(model.modelId);
-
+        
+        // 获取自定义名称，如果没有则使用原始 label
+        const displayName = (modelCustomNames && modelCustomNames[model.modelId]) || model.label;
+        const originalLabel = model.label;
 
         const card = document.createElement('div');
         card.className = 'card draggable';
@@ -832,8 +913,9 @@
         card.innerHTML = `
             <div class="card-title">
                 <span class="drag-handle" data-tooltip="${i18n['dashboard.dragHint'] || 'Drag to reorder'}">⋮⋮</span>
-                <span class="label" title="${model.modelId}">${model.label}</span>
+                <span class="label model-name" title="${model.modelId} (${originalLabel})">${displayName}</span>
                 <div class="actions">
+                    <button class="rename-model-btn icon-btn" data-model-id="${model.modelId}" title="${i18n['model.rename'] || 'Rename Model'}">✏️</button>
                     <label class="switch" data-tooltip="${i18n['dashboard.pinHint'] || 'Pin to Status Bar'}">
                         <input type="checkbox" class="pin-toggle" data-model-id="${model.modelId}" ${isPinned ? 'checked' : ''}>
                         <span class="slider"></span>
@@ -859,6 +941,16 @@
                 </span>
             </div>
         `;
+        
+        // 绑定重命名按钮事件
+        const renameBtn = card.querySelector('.rename-model-btn');
+        if (renameBtn) {
+            renameBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openModelRenameModal(model.modelId, displayName);
+            });
+        }
+        
         dashboard.appendChild(card);
     }
 

@@ -17,6 +17,8 @@ export interface CockpitConfig {
     pinnedModels: string[];
     /** 模型排序顺序 */
     modelOrder: string[];
+    /** 模型自定义名称映射 (modelId -> displayName) */
+    modelCustomNames: Record<string, string>;
     /** 日志级别 */
     logLevel: string;
     /** 是否启用通知 */
@@ -69,6 +71,7 @@ class ConfigService {
             showPromptCredits: config.get<boolean>(CONFIG_KEYS.SHOW_PROMPT_CREDITS, false),
             pinnedModels: config.get<string[]>(CONFIG_KEYS.PINNED_MODELS, []),
             modelOrder: config.get<string[]>(CONFIG_KEYS.MODEL_ORDER, []),
+            modelCustomNames: config.get<Record<string, string>>(CONFIG_KEYS.MODEL_CUSTOM_NAMES, {}),
             logLevel: config.get<string>(CONFIG_KEYS.LOG_LEVEL, LOG_LEVELS.INFO),
             notificationEnabled: config.get<boolean>(CONFIG_KEYS.NOTIFICATION_ENABLED, true),
             statusBarFormat: config.get<string>(CONFIG_KEYS.STATUS_BAR_FORMAT, STATUS_BAR_FORMAT.STANDARD),
@@ -151,6 +154,26 @@ class ConfigService {
      */
     async resetModelOrder(): Promise<void> {
         await this.updateConfig('modelOrder', []);
+    }
+
+    /**
+     * 更新模型自定义名称
+     * @param modelId 模型 ID
+     * @param displayName 新的显示名称
+     */
+    async updateModelName(modelId: string, displayName: string): Promise<void> {
+        const config = this.getConfig();
+        const customNames = { ...config.modelCustomNames };
+        
+        if (displayName.trim()) {
+            customNames[modelId] = displayName.trim();
+        } else {
+            // 如果名称为空，删除自定义名称（恢复原始名称）
+            delete customNames[modelId];
+        }
+        
+        logger.info(`Updating model name for ${modelId} to: ${displayName}`);
+        await this.updateConfig('modelCustomNames', customNames);
     }
 
     /**

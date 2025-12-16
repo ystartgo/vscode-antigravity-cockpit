@@ -58,6 +58,7 @@ export const CONFIG_KEYS = {
     SHOW_PROMPT_CREDITS: 'showPromptCredits',
     PINNED_MODELS: 'pinnedModels',
     MODEL_ORDER: 'modelOrder',
+    MODEL_CUSTOM_NAMES: 'modelCustomNames',
     LOG_LEVEL: 'logLevel',
     NOTIFICATION_ENABLED: 'notificationEnabled',
     STATUS_BAR_FORMAT: 'statusBarFormat',
@@ -74,12 +75,16 @@ export const CONFIG_KEYS = {
 
 /** 状态栏显示格式 */
 export const STATUS_BAR_FORMAT = {
-    /** 简洁模式：只显示百分比 */
+    /** 仅图标模式：只显示🚀 */
+    ICON: 'icon',
+    /** 仅状态球模式：只显示 🟢🟡🔴 */
+    DOT: 'dot',
+    /** 仅数字模式：只显示百分比 */
+    PERCENT: 'percent',
+    /** 紧凑模式：状态球 + 百分比 */
     COMPACT: 'compact',
-    /** 标准模式：显示模型名 + 百分比 */
+    /** 标准模式：状态球 + 模型名 + 百分比（默认） */
     STANDARD: 'standard',
-    /** 详细模式：显示完整信息 */
-    DETAILED: 'detailed',
 } as const;
 
 /** 日志级别 */

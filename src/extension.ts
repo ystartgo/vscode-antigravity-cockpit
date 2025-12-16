@@ -412,6 +412,28 @@ function setupMessageHandling(): void {
                     }
                 }
                 break;
+
+            case 'renameModel':
+                if (message.modelId && message.groupName !== undefined) {
+                    logger.info(`User renamed model ${message.modelId} to: ${message.groupName}`);
+                    await configService.updateModelName(message.modelId, message.groupName);
+                    // 使用缓存数据重新渲染
+                    reactor.reprocess();
+                } else {
+                    logger.warn('renameModel signal missing required data');
+                }
+                break;
+
+            case 'updateStatusBarFormat':
+                if (message.statusBarFormat) {
+                    logger.info(`User changed status bar format to: ${message.statusBarFormat}`);
+                    await configService.updateConfig('statusBarFormat', message.statusBarFormat);
+                    // 立即刷新状态栏
+                    reactor.reprocess();
+                } else {
+                    logger.warn('updateStatusBarFormat signal missing statusBarFormat');
+                }
+                break;
         }
     });
 }
@@ -452,6 +474,7 @@ function setupTelemetryHandling(): void {
             showPromptCredits: config.showPromptCredits,
             pinnedModels: config.pinnedModels,
             modelOrder: config.modelOrder,
+            modelCustomNames: config.modelCustomNames,
             groupingEnabled: config.groupingEnabled,
             groupCustomNames: config.groupingCustomNames,
             groupingShowInStatusBar: config.groupingShowInStatusBar,
@@ -462,6 +485,7 @@ function setupTelemetryHandling(): void {
             warningThreshold: config.warningThreshold,
             criticalThreshold: config.criticalThreshold,
             lastSuccessfulUpdate: lastSuccessfulUpdate,
+            statusBarFormat: config.statusBarFormat,
         });
 
         // 更新 QuickPick 视图数据
@@ -506,6 +530,14 @@ function setupTelemetryHandling(): void {
  * 更新状态栏显示
  */
 function updateStatusBar(snapshot: QuotaSnapshot, config: CockpitConfig): void {
+    // 仅图标模式：直接显示 🚀
+    if (config.statusBarFormat === STATUS_BAR_FORMAT.ICON) {
+        statusBarItem.text = '🚀';
+        statusBarItem.backgroundColor = undefined;
+        statusBarItem.tooltip = generateQuotaTooltip(snapshot, config);
+        return;
+    }
+
     const statusTextParts: string[] = [];
     let minPercentage = 100;
 
@@ -536,13 +568,13 @@ function updateStatusBar(snapshot: QuotaSnapshot, config: CockpitConfig): void {
             monitoredGroups.forEach(g => {
                 const pct = g.remainingPercentage;
                 const text = formatStatusBarText(g.groupName, pct, config.statusBarFormat, config);
-                statusTextParts.push(text);
+                if (text) {statusTextParts.push(text);}
                 if (pct < minPercentage) {
                     minPercentage = pct;
                 }
             });
         } else {
-            // 显示最低配额分组，格式改为 "最低: xx%"
+            // 显示最低配额分组
             let lowestPct = 100;
             let lowestGroup = snapshot.groups[0];
 
@@ -555,7 +587,14 @@ function updateStatusBar(snapshot: QuotaSnapshot, config: CockpitConfig): void {
             });
 
             if (lowestGroup) {
-                statusTextParts.push(`${t('statusBar.lowest')}: ${Math.floor(lowestPct)}%`);
+                const text = formatStatusBarText(lowestGroup.groupName, lowestPct, config.statusBarFormat, config);
+                if (text) {
+                    statusTextParts.push(text);
+                } else {
+                    // 仅状态球或仅数字模式时，显示最低的
+                    const dot = getStatusIcon(lowestPct, config);
+                    statusTextParts.push(config.statusBarFormat === STATUS_BAR_FORMAT.DOT ? dot : `${Math.floor(lowestPct)}%`);
+                }
                 minPercentage = lowestPct;
             }
         }
@@ -586,7 +625,7 @@ function updateStatusBar(snapshot: QuotaSnapshot, config: CockpitConfig): void {
             monitoredModels.forEach(m => {
                 const pct = m.remainingPercentage ?? 0;
                 const text = formatStatusBarText(m.label, pct, config.statusBarFormat, config);
-                statusTextParts.push(text);
+                if (text) {statusTextParts.push(text);}
                 if (pct < minPercentage) {
                     minPercentage = pct;
                 }
@@ -605,17 +644,24 @@ function updateStatusBar(snapshot: QuotaSnapshot, config: CockpitConfig): void {
             });
 
             if (lowestModel) {
-                statusTextParts.push(`${t('statusBar.lowest')}: ${Math.floor(lowestPct)}%`);
+                const text = formatStatusBarText(lowestModel.label, lowestPct, config.statusBarFormat, config);
+                if (text) {
+                    statusTextParts.push(text);
+                } else {
+                    // 仅状态球或仅数字模式时，显示最低的
+                    const dot = getStatusIcon(lowestPct, config);
+                    statusTextParts.push(config.statusBarFormat === STATUS_BAR_FORMAT.DOT ? dot : `${Math.floor(lowestPct)}%`);
+                }
                 minPercentage = lowestPct;
             }
         }
     }
 
-    // 更新状态栏（每个模型/分组前面显示颜色球，不再使用背景色）
+    // 更新状态栏
     if (statusTextParts.length > 0) {
         statusBarItem.text = statusTextParts.join(' | ');
     } else {
-        statusBarItem.text = `🟢 ${t('statusBar.ready')}`;
+        statusBarItem.text = '🟢';
     }
 
     // 移除背景色，改用每个项目前的颜色球区分
@@ -724,18 +770,29 @@ function getStatusIcon(percentage: number, config?: CockpitConfig): string {
 }
 
 /**
- * 格式化状态栏文本（带颜色球前缀）
+ * 格式化状态栏文本（支持5种显示模式）
  */
 function formatStatusBarText(label: string, percentage: number, format: string, config?: CockpitConfig): string {
-    const icon = getStatusIcon(percentage, config);
+    const dot = getStatusIcon(percentage, config);
+    const pct = `${Math.floor(percentage)}%`;
+    
     switch (format) {
+        case STATUS_BAR_FORMAT.ICON:
+            // 仅图标模式：返回空字符串，由 updateStatusBar 统一处理显示🚀
+            return '';
+        case STATUS_BAR_FORMAT.DOT:
+            // 仅状态球模式
+            return dot;
+        case STATUS_BAR_FORMAT.PERCENT:
+            // 仅数字模式
+            return pct;
         case STATUS_BAR_FORMAT.COMPACT:
-            return `${icon} ${Math.floor(percentage)}%`;
-        case STATUS_BAR_FORMAT.DETAILED:
-            return `${icon} ${label}: ${percentage.toFixed(1)}%`;
+            // 状态球 + 数字
+            return `${dot} ${pct}`;
         case STATUS_BAR_FORMAT.STANDARD:
         default:
-            return `${icon} ${label}: ${Math.floor(percentage)}%`;
+            // 状态球 + 模型名 + 数字（默认）
+            return `${dot} ${label}: ${pct}`;
     }
 }
 

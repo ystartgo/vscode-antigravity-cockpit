@@ -769,6 +769,32 @@ input:checked + .slider:before {
     background: rgba(255, 255, 255, 0.1);
 }
 
+/* 模型重命名按钮（非分组模式） */
+.rename-model-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    opacity: 0.5;
+}
+
+.rename-model-btn:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.card:hover .rename-model-btn {
+    opacity: 0.7;
+}
+
+/* 模型名称可悬停样式 */
+.model-name {
+    cursor: default;
+}
+
 .group-models {
     width: 100%;
     margin-top: 12px;
@@ -1159,4 +1185,74 @@ input:checked + .slider:before {
 .footer-link.feedback-link:hover {
     background: rgba(47, 129, 247, 0.1);
     transform: translateY(-2px);
+}
+
+/* ============ Status Bar Format Selector ============ */
+
+.modal-content-wide {
+    max-width: 500px;
+}
+
+.statusbar-format-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.format-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 8px;
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-height: 70px;
+}
+
+.format-btn:hover {
+    border-color: var(--accent);
+    background: rgba(47, 129, 247, 0.1);
+}
+
+.format-btn.active {
+    border-color: var(--accent);
+    background: rgba(47, 129, 247, 0.15);
+    box-shadow: 0 0 0 2px rgba(47, 129, 247, 0.3);
+}
+
+.format-preview {
+    font-size: 16px;
+    margin-bottom: 6px;
+    white-space: nowrap;
+    color: var(--text-primary);
+}
+
+.format-label {
+    font-size: 10px;
+    color: var(--text-secondary);
+    text-align: center;
+    line-height: 1.2;
+}
+
+.format-btn.active .format-label {
+    color: var(--accent);
+    font-weight: 500;
+}
+
+.setting-divider {
+    border: none;
+    border-top: 1px dashed var(--border-color);
+    margin: 20px 0;
+}
+
+/* Responsive: 小屏幕时换成 3 列 */
+@media (max-width: 450px) {
+    .statusbar-format-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
 }

@@ -93,6 +93,7 @@ export class CockpitHUD {
                 showPromptCredits: config.showPromptCredits,
                 pinnedModels: config.pinnedModels,
                 modelOrder: config.modelOrder,
+                modelCustomNames: config.modelCustomNames,
                 groupingEnabled: config.groupingEnabled,
                 groupCustomNames: config.groupingCustomNames,
                 groupingShowInStatusBar: config.groupingShowInStatusBar,
@@ -102,6 +103,7 @@ export class CockpitHUD {
                 notificationEnabled: config.notificationEnabled,
                 warningThreshold: config.warningThreshold,
                 criticalThreshold: config.criticalThreshold,
+                statusBarFormat: config.statusBarFormat,
             });
         }
     }
@@ -303,12 +305,41 @@ export class CockpitHUD {
     </div>
 
     <div id="settings-modal" class="modal hidden">
-        <div class="modal-content">
+        <div class="modal-content modal-content-wide">
             <div class="modal-header">
                 <h3>⚙️ ${t('threshold.settings')}</h3>
                 <button id="close-settings-btn" class="close-btn">×</button>
             </div>
             <div class="modal-body">
+                <!-- 状态栏样式选择 -->
+                <div class="setting-item">
+                    <label>📊 ${i18n.t('statusBarFormat.title')}</label>
+                    <div class="statusbar-format-grid">
+                        <button class="format-btn" data-format="icon" title="${i18n.t('statusBarFormat.icon')}">
+                            <span class="format-preview">${i18n.t('statusBarFormat.iconDesc')}</span>
+                            <span class="format-label">${i18n.t('statusBarFormat.icon')}</span>
+                        </button>
+                        <button class="format-btn" data-format="dot" title="${i18n.t('statusBarFormat.dot')}">
+                            <span class="format-preview">${i18n.t('statusBarFormat.dotDesc')}</span>
+                            <span class="format-label">${i18n.t('statusBarFormat.dot')}</span>
+                        </button>
+                        <button class="format-btn" data-format="percent" title="${i18n.t('statusBarFormat.percent')}">
+                            <span class="format-preview">${i18n.t('statusBarFormat.percentDesc')}</span>
+                            <span class="format-label">${i18n.t('statusBarFormat.percent')}</span>
+                        </button>
+                        <button class="format-btn" data-format="compact" title="${i18n.t('statusBarFormat.compact')}">
+                            <span class="format-preview">${i18n.t('statusBarFormat.compactDesc')}</span>
+                            <span class="format-label">${i18n.t('statusBarFormat.compact')}</span>
+                        </button>
+                        <button class="format-btn" data-format="standard" title="${i18n.t('statusBarFormat.standard')}">
+                            <span class="format-preview">${i18n.t('statusBarFormat.standardDesc')}</span>
+                            <span class="format-label">${i18n.t('statusBarFormat.standard')}</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <hr class="setting-divider">
+                
                 <div class="setting-item">
                     <label for="notification-enabled" class="checkbox-label">
                         <input type="checkbox" id="notification-enabled" checked>

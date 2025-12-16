@@ -8,6 +8,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.5.0] - 2025-12-16
+
+### Added
+- **Model Rename**: Rename individual models in non-grouping mode (click ✏️ icon on model cards)
+- **Status Bar Style Selector**: 5 display modes available in Settings modal
+  - Icon only (`🚀`)
+  - Status dot only (`🟢` | `🟡` | `🔴`)
+  - Percent only (`95%`)
+  - Dot + Percent (`🟢 95%`)
+  - Full display (`🟢 Sonnet: 95%`) - default
+
+### Changed
+- Settings modal now includes status bar style picker with live preview
+- Custom model names persist across sessions
+
+---
+
 ## [1.4.24] - 2025-12-15
 
 ### Changed
