@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.5.12] - 2025-12-17
+
+### Fixed
+- **Status Colors**: Reverted to vibrant status colors (using terminal/chart colors instead of dull icon colors) for better visibility
+
+---
+
 ## [1.5.11] - 2025-12-16
 
 ### Added
