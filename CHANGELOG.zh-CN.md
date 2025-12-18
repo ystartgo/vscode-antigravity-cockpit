@@ -1,6 +1,6 @@
 # 更新日志
 
-简体中文 · [英文](CHANGELOG.md)
+简体中文 · [English](CHANGELOG.md) · [繁體中文](CHANGELOG.zh-TW.md)
 
 本文件记录 Antigravity Cockpit 扩展的所有重要变更。
 
