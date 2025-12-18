@@ -1,6 +1,6 @@
 # Changelog
 
-English · [Chinese](CHANGELOG.zh-CN.md)
+English · [简体中文](CHANGELOG.zh-CN.md) · [繁體中文](CHANGELOG.zh-TW.md)
 
 All notable changes to the Antigravity Cockpit extension will be documented in this file.
 
