@@ -2,7 +2,7 @@
 
 > 在 VS Code 中以仪表盘方式监控 Google Antigravity AI 配额。
 
-简体中文 · [英文](README.md)
+简体中文 · [English](README.md) · [繁體中文](README.zh-TW.md)
 
 [![版本](https://img.shields.io/open-vsx/v/jlcodes/antigravity-cockpit)](https://open-vsx.org/extension/jlcodes/antigravity-cockpit)
 [![GitHub Stars](https://img.shields.io/github/stars/jlcodes99/vscode-antigravity-cockpit?style=flat&color=gold)](https://github.com/jlcodes99/vscode-antigravity-cockpit)
@@ -38,8 +38,8 @@
 - 可在设置中关闭通知，保持安静。
 
 ### 多语言支持
-- 支持英文与中文。
-- 自动根据 VS Code 语言设置切换。
+- 支持英文、简体中文、繁體中文（台灣）。
+- 自动根据 VS Code 语言设置切换.
 
 ### 稳定且快速
 - 即时恢复：仪表盘状态会缓存，即使切到后台也能快速恢复。
